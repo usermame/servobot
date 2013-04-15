@@ -18,8 +18,14 @@ volatile uint16_t counter = 1;
 volatile uint16_t wheelspeed[2][_PRUMER];
 volatile uint16_t wheelspeedaverage[2];
 volatile uint16_t wheelcounter[2];
+volatile int8_t wheelcontrol[2];
 volatile uint8_t wheelinc[2];
 volatile uint8_t increg=1;
+uint8_t seriallogic = 0;
+uint8_t serialdatain[5];
+int8_t serialtemp = 0;
+int8_t *inserial = 0;
+int8_t serialctrl = 0;
 
 #define _PERIODA 4999
 
@@ -27,13 +33,10 @@ volatile uint8_t increg=1;
 
 int krok=1;
 
+void getdata();
+
 void regulace()
-{/*
-if(OCR1A == (_PERIODA / 20) * 1.5)
-	{
-		OCR1B = (_PERIODA / 20) * 1.5;
-		return;
-	}		
+{	
 wheelspeedaverage[0] = 0;
 wheelspeedaverage[1] = 0;
 for(int i=0; i<_PRUMER; i++)
@@ -41,9 +44,11 @@ for(int i=0; i<_PRUMER; i++)
 	wheelspeedaverage[0] += wheelspeed[0][i] / _PRUMER;
 	wheelspeedaverage[1] += wheelspeed[1][i] / _PRUMER;
 }
-	increg=(OCR1A < (_PERIODA / 20) * 1.5)?-1:1;
+
+/*
+	increg=(wheelcontrol[0] < 0)?-1:1;
 		
-		if((OCR1B > 0)  && (OCR1B < 500))
+		if((OCR1B > -100)  && (OCR1B < 100))
 			if(wheelspeedaverage[1]	< wheelspeedaverage[0])
 				OCR1B +=increg;
 			else
@@ -62,12 +67,18 @@ else
 }
 
 ISR(USART_RX_vect) {
-	
+getdata();	
 }
 
 ISR(TIMER0_OVF_vect) {
-	wheelcounter[0]++;
-	wheelcounter[1]++;
+	if(wheelcounter[0] < 65500)
+		wheelcounter[0]++;
+	if(wheelcounter[1] < 65500)	
+		wheelcounter[1]++;
+
+		
+	
+	
 /*	counter += krok;
 	if (counter>64000 || counter<1)
 		krok = krok * - 1;
@@ -80,7 +91,6 @@ wheelinc[0]++;
 wheelinc[0] = wheelinc[0] % _PRUMER;
 wheelspeed[0][wheelinc[0]] = wheelcounter[0];
 wheelcounter[0] = 0;
-regulace();
 }	
 
 ISR(INT1_vect) 
@@ -89,8 +99,7 @@ wheelinc[1]++;
 wheelinc[1] = wheelinc[1] % _PRUMER;
 wheelspeed[1][wheelinc[1]] = wheelcounter[1];
 wheelcounter[1] = 0;
-regulace();
-}	
+}
 
 void init_timer()
 {
@@ -120,58 +129,107 @@ void init_ext()
 	wheelcounter[0] = wheelcounter[1] = 0;
 }	
 
+void senddata()
+{
+	int i=0;
+	char texttouart[50];		
+		sprintf(texttouart, "%d\t%d\r\n", OCR1A, OCR1B);
+		i=0;
+		while(texttouart[i] != '\0')
+		{
+			USART_Transmit(texttouart[i]);
+			i++;
+		}
+}
+
+void getdata()
+{
+	char ch = USART_Receive();
+	switch(seriallogic)
+	{
+		case 0:
+		serialctrl = 0;
+		break;
+		case 1:
+		if(serialctrl==1 && (ch>='0' && ch<='9'))
+		{
+			seriallogic++;
+			serialtemp = (ch-'0') * 100;
+		}
+		else
+		seriallogic=0;
+		break;
+		case 2:
+		if(serialctrl==1 && (ch>='0' && ch<='9'))
+		{
+			seriallogic++;
+			serialtemp += (ch-'0') * 10;
+		}
+		else
+		seriallogic=0;
+		break;
+		case 3:
+		if(serialctrl==1 && (ch>='0' && ch<='9'))
+		{
+			seriallogic++;
+			serialtemp += (ch-'0');
+		}
+		else
+		seriallogic=0;
+
+		break;
+		case 4:
+		if(serialctrl==1 && ch=='-' && serialtemp <= 100)
+		{
+			serialtemp *= -1;
+			*inserial = serialtemp;
+				
+		}
+		else if(serialctrl==1 && ch=='+' && serialtemp <= 100)
+		{
+			*inserial = serialtemp;
+		}
+		seriallogic=0;
+
+		break;
+		default:
+		break;
+	}
+	if(ch=='l')
+	{
+		seriallogic=1;
+		serialctrl=1;
+		inserial = &wheelcontrol[0];
+	}
+	if(ch=='r')
+	{
+		seriallogic=1;
+		serialctrl=1;
+		inserial = &wheelcontrol[1];
+	}
+}
+
+
+
 
 int main(){
 	init_timer();
 	init_pwm();
 	init_ext();
 	USART_Init(103);
-	
 	sei();
 	
-	OCR1A = (_PERIODA / 20) *	 1.5;
-	OCR1B = (_PERIODA / 20) *    1.5;
-
-	DDRD |= (1 << DDD4);
+	wheelcontrol[0] = 0;
+	wheelcontrol[1] = 0;
 	
-	int i=0;
-	char texttouart[50];
 	while(1)
 	{
-		sprintf(texttouart, "%d\t%d\t%d\t%d\r\n", wheelspeedaverage[0], wheelspeedaverage[1], wheelcounter[0], OCR1B);	
-		i=0;
-		while(texttouart[i] != '\0')
-		{
-			USART_Transmit(texttouart[i]);
-			i++;
-		}	
-		
-		switch(USART_Receive())
-		{
-			case 'f':
-				OCR1A = (_PERIODA / 20) *	 1.8;
-				OCR1B = (_PERIODA / 20) *    1.2;
-			break;
-			case 's':
-				OCR1A = (_PERIODA / 20) *	 1.5;
-				OCR1B = (_PERIODA / 20) *    1.5;
-			break;
-				case 'l':
-				OCR1A = (_PERIODA / 20) *	 1.6;
-				OCR1B = (_PERIODA / 20) *    1.6;
-			break;
-				case 'r':
-				OCR1A = (_PERIODA / 20) *	 1.4;
-				OCR1B = (_PERIODA / 20) *    1.4;
-			break;
-				case 'b':
-				OCR1A = (_PERIODA / 20) *	 1.2;
-				OCR1B = (_PERIODA / 20) *    1.8;
-			break;
-			default:
-			break;
-		}		
+		senddata();
+		//getdata();
+		//regulace();
 	
+		OCR1A = wheelcontrol[0]*1.25+375;
+		OCR1B = wheelcontrol[1]*1.25+375;
 		_delay_ms(100);
 	}	
 	

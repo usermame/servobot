@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# AvrStudio Solution File, Format Version 11.00
+Project("{D1100916-62DA-4D80-A9B4-55A1E7CCEEB3}") = "servobot", "servobot\servobot.avrgccproj", "{D966065C-8F99-4D3E-8E1D-81DC329C09D4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AVR = Debug|AVR
+		Release|AVR = Release|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D966065C-8F99-4D3E-8E1D-81DC329C09D4}.Debug|AVR.ActiveCfg = Debug|AVR
+		{D966065C-8F99-4D3E-8E1D-81DC329C09D4}.Debug|AVR.Build.0 = Debug|AVR
+		{D966065C-8F99-4D3E-8E1D-81DC329C09D4}.Release|AVR.ActiveCfg = Release|AVR
+		{D966065C-8F99-4D3E-8E1D-81DC329C09D4}.Release|AVR.Build.0 = Release|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
